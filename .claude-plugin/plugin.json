@@ -1,0 +1,19 @@
+{
+  "name": "mod-notification",
+  "version": "0.1.0",
+  "description": "Sends a notification (phone included, via Remote Control) when Claude has finished or is waiting for your answer and you have not come back after a configurable delay.",
+  "userConfig": {
+    "delaySeconds": {
+      "type": "number",
+      "title": "Delay before notifying (seconds)",
+      "description": "How long to wait without any reply from you before a notification is sent. 60 = 1 minute.",
+      "default": 60
+    },
+    "includePreview": {
+      "type": "boolean",
+      "title": "Include the end of the answer in the notification",
+      "description": "When on, the last sentence of the answer (in the conversation language) is appended: usually Claude's question or the result. For a question dialog, the question itself.",
+      "default": true
+    }
+  }
+}
