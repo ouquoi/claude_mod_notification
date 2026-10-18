@@ -13,6 +13,34 @@ Get a push notification when Claude Code has finished or is waiting for you, so 
 - **Quiet when you're around**: the timer is cancelled as soon as you submit a prompt or end the session.
 - **Clean display**: the internal push prompt, its tool call and the model's `ok` reply are hidden from the conversation.
 
+## Notification examples
+
+Turn finished, with the preview on (default):
+
+```
+✅ "my-project" · 17s · 219.4k in / 1.7k out · $0.06. Claude is waiting for you. « Do you want me to push it? »
+```
+
+Turn finished, with the preview off:
+
+```
+✅ "my-project" · 1m 12s · 48.2k in / 3.1k out · $0.21. Claude is waiting for you.
+```
+
+Turn stopped on an error:
+
+```
+❌ "my-project" · 9s · 12.0k in / 350 out · <$0.01. Claude stopped on an error. « The build failed on the auth tests. »
+```
+
+Claude is asking you a question (desktop notification):
+
+```
+❓ "my-project". Claude is asking you something. « Which package manager should we use? »
+```
+
+The project name is the last folder of the session's working directory. Token counts include cached tokens.
+
 ## Installation
 
 Clone the repository and start Claude Code with the plugin loaded:
