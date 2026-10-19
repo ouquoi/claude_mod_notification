@@ -73,14 +73,16 @@ When the timer fires, the mod raises a desktop notification through Claude Code'
 
 ## Why an external tool like ntfy?
 
-Claude Code can push to your phone through its `PushNotification` tool (via Remote Control), but that tool belongs to the model, and a mod has no supported way to make it reach the phone on its own. Two approaches were tried and dropped:
+The main reason is to **avoid consuming tokens**. Claude Code can push to your phone through its `PushNotification` tool (via Remote Control), but that tool belongs to the model. The only way for a mod to use it is to ask the model to call it, and that is a full model turn: the whole conversation is sent to the model again as input (cached tokens are cheaper but still counted), so every notification is billed and the bill grows with the length of the session. It also adds a prompt, a tool call and a reply to your conversation. A notification should cost nothing.
 
-- **Asking the model to call the tool.** The mod submits a prompt and the model calls `PushNotification`. This works at the end of a turn, but every push is a model turn that costs tokens. It also cannot alert you about a question: the prompt queues behind the running turn, so it only runs after you have answered the dialog, which is too late.
+Two approaches using Claude's own tool were tried and dropped:
+
+- **Asking the model to call the tool.** The mod submits a prompt and the model calls `PushNotification`. This works at the end of a turn, but every push is a model turn that costs tokens, as described above. It also cannot alert you about a question: the prompt queues behind the running turn, so it only runs after you have answered the dialog, which is too late.
 - **Calling the tool directly from the mod.** `$.tool.call` on `PushNotification` answers "Mobile push requested", but in testing nothing reached the phone. The push appears to depend on the tool call being part of the conversation stream sent to Remote Control, which a direct call from a mod bypasses.
 
 The desktop notification is not enough on its own either: it only writes to your terminal (`preferredNotifChannel`), so it never reaches a phone, and on Windows it often shows nothing at all.
 
-[ntfy](https://ntfy.sh) solves both problems. The mod sends a plain HTTP request, so there is no model turn and no tokens. It also works while a question dialog is open, because nothing has to wait for the turn. The cost is a third-party service that sees the notification text, which is why the topic name must stay secret.
+[ntfy](https://ntfy.sh) solves these problems. The mod sends a plain HTTP request, so there is no model turn, no tokens and nothing added to the conversation. It also works while a question dialog is open, because nothing has to wait for the turn. The cost is a third-party service that sees the notification text, which is why the topic name must stay secret.
 
 ## Development
 
