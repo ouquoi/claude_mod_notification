@@ -71,6 +71,17 @@ Without `ntfyTopic`, only the desktop notification is sent, and a line in the de
 
 When the timer fires, the mod raises a desktop notification through Claude Code's notification channel (the `preferredNotifChannel` setting; on Windows, `terminal_bell` is the most reliable) and posts the same text to `https://ntfy.sh` with `$.http.fetch`. The text, including the question or the end of the answer when the preview is on, therefore goes through the ntfy server.
 
+## Why an external tool like ntfy?
+
+Claude Code can push to your phone through its `PushNotification` tool (via Remote Control), but that tool belongs to the model, and a mod has no supported way to make it reach the phone on its own. Two approaches were tried and dropped:
+
+- **Asking the model to call the tool.** The mod submits a prompt and the model calls `PushNotification`. This works at the end of a turn, but every push is a model turn that costs tokens. It also cannot alert you about a question: the prompt queues behind the running turn, so it only runs after you have answered the dialog, which is too late.
+- **Calling the tool directly from the mod.** `$.tool.call` on `PushNotification` answers "Mobile push requested", but in testing nothing reached the phone. The push appears to depend on the tool call being part of the conversation stream sent to Remote Control, which a direct call from a mod bypasses.
+
+The desktop notification is not enough on its own either: it only writes to your terminal (`preferredNotifChannel`), so it never reaches a phone, and on Windows it often shows nothing at all.
+
+[ntfy](https://ntfy.sh) solves both problems. The mod sends a plain HTTP request, so there is no model turn and no tokens. It also works while a question dialog is open, because nothing has to wait for the turn. The cost is a third-party service that sees the notification text, which is why the topic name must stay secret.
+
 ## Development
 
 The plugin is written in TypeScript. The hook module is `hooks/register.ts`, with tests in `hooks/register.test.ts`.
