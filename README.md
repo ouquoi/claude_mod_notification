@@ -16,6 +16,10 @@ Get a desktop and phone notification when Claude Code has finished or is waiting
 
 ## Notification examples
 
+![Mockup of the phone notifications](docs/notification.png)
+
+*Mockup of the phone notifications, based on the examples below.*
+
 Every notification reads the same on the desktop and on the phone. Turn finished, with the preview on (default):
 
 ```
