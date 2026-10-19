@@ -4,9 +4,10 @@ const PREVIEW_LENGTH = 100
 const MIN_VISIBLE_COST_USD = 0.01
 const MIN_DELAY_SECONDS = 1
 const NOTIFICATION_TITLE = 'Claude Code'
-const PUSH_PROMPT_PREFIX = '[mod-notification]'
-const PUSH_TOOL_NAME = 'PushNotification'
-const PUSH_REPLY = 'ok'
+const NTFY_URL = 'https://ntfy.sh'
+// The mod cannot read its own session's web address, so the button opens the session list.
+const CLAUDE_CODE_URL = 'https://claude.ai/code'
+const OPEN_BUTTON_LABEL = 'Open Claude Code'
 
 const toPreview = (text: string): string => {
   const flat = text.replace(/\s+/g, ' ').trim()
@@ -84,30 +85,49 @@ const sendNotification = async ($: Engine, text: string): Promise<void> => {
   }
 }
 
-// The mod cannot push to the phone itself: it asks the model to call PushNotification.
-const buildPushPrompt = (message: string): string =>
-  `${PUSH_PROMPT_PREFIX} Call the PushNotification tool now (status "proactive") with exactly this message, then reply with only "ok": ${message}`
-
-const requestPhonePush = async ($: Engine, message: string): Promise<void> => {
+// ntfy pushes to the phone with no model turn, so it costs no tokens.
+const sendPhonePush = async ($: Engine, topic: string, text: string): Promise<void> => {
   try {
-    await $.prompt.submit({ text: buildPushPrompt(message) })
+    const response = await $.http.fetch(NTFY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        topic,
+        title: NOTIFICATION_TITLE,
+        message: text,
+        click: CLAUDE_CODE_URL,
+        actions: [{ action: 'view', label: OPEN_BUTTON_LABEL, url: CLAUDE_CODE_URL }],
+      }),
+    })
+    if (!response.ok) {
+      $.ui.log(`mod-notification: phone push refused (HTTP ${response.status})`)
+    }
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
-    $.ui.log(`mod-notification: push request failed (${reason})`)
+    $.ui.log(`mod-notification: phone push failed (${reason})`)
   }
 }
+
+const alertPerson = async ($: Engine, ntfyTopic: string, message: string): Promise<void> => {
+  if (ntfyTopic.length === 0) {
+    $.ui.log('mod-notification: ntfyTopic is not set, no phone push')
+  }
+  await Promise.all([
+    sendNotification($, message),
+    ntfyTopic.length > 0 ? sendPhonePush($, ntfyTopic, message) : Promise.resolve(),
+  ])
+}
+
+const readNtfyTopic =(value: unknown): string => (typeof value === 'string' ? value.trim() : '')
 
 export const register: Register = (on, options) => {
   const delaySeconds = Math.max(MIN_DELAY_SECONDS, Number(options.delaySeconds))
   const delayMs = delaySeconds * 1000
   const isPreviewIncluded = options.includePreview === true
+  const ntfyTopic = readNtfyTopic(options.ntfyTopic)
 
   // Timer started when a turn ends; cancelled as soon as the person comes back.
   let idleTimer: Timer | undefined
-
-  // True from the moment we ask the model to push until that turn ends, so the
-  // push turn itself never schedules another notification.
-  let isPushTurnPending = false
 
   // Session cost when the current main-loop turn started; the turn's price is the gap.
   let turnStartCostUsd: number | undefined
@@ -119,10 +139,6 @@ export const register: Register = (on, options) => {
 
   on('turn.complete', async ($, e, next) => {
     const isMainLoop = e.agentId === undefined
-    if (isMainLoop && isPushTurnPending) {
-      isPushTurnPending = false
-      return next(e)
-    }
     if (isMainLoop && (e.reason === 'answer' || e.reason === 'error')) {
       cancelIdleTimer()
       const project = await getProjectName($)
@@ -147,8 +163,7 @@ export const register: Register = (on, options) => {
             )
       idleTimer = $.clock.after(delayMs, () => {
         idleTimer = undefined
-        isPushTurnPending = true
-        void requestPhonePush($, message)
+        void alertPerson($, ntfyTopic, message)
       })
     }
     return next(e)
@@ -177,47 +192,17 @@ export const register: Register = (on, options) => {
     const project = await getProjectName($)
     const firstQuestion = e.questions[0]?.question ?? ''
     const questionTimer = $.clock.after(delayMs, () => {
-      void sendNotification(
-        $,
-        withPreview(
-          `❓ "${project}". Claude is asking you something.`,
-          firstQuestion,
-          isPreviewIncluded,
-        ),
+      const message = withPreview(
+        `❓ "${project}". Claude is asking you something.`,
+        firstQuestion,
+        isPreviewIncluded,
       )
+      void alertPerson($, ntfyTopic, message)
     })
     try {
       return await next(e)
     } finally {
       questionTimer.cancel()
     }
-  })
-
-  // The push turn is plumbing: shrink its prompt to one dim line and hide its tool
-  // call, the result and the model's "ok". ctrl+o (expanded) still shows the prompt.
-  on('ui.render', { component: 'UserMessage' }, ($, e, next) => {
-    const isPushPrompt =
-      e.props.origin.kind === 'plugin' && e.props.text.includes(PUSH_PROMPT_PREFIX)
-    if (!isPushPrompt || e.props.isExpanded) return next(e)
-    const { Text } = $.ui.resolve(e)
-    return h(Text, { dimColor: true }, '🔔 push notification requested')
-  })
-
-  on('ui.render', { component: 'ToolUse' }, ($, e, next) => {
-    if (e.props.tool !== PUSH_TOOL_NAME) return next(e)
-    const { Box } = $.ui.resolve(e)
-    return h(Box, { display: 'none' })
-  })
-
-  on('ui.render', { component: 'ToolResult' }, ($, e, next) => {
-    if (e.props.tool !== PUSH_TOOL_NAME) return next(e)
-    const { Box } = $.ui.resolve(e)
-    return h(Box, { display: 'none' })
-  })
-
-  on('ui.render', { component: 'AssistantMessage' }, ($, e, next) => {
-    if (e.props.text.trim() !== PUSH_REPLY) return next(e)
-    const { Box } = $.ui.resolve(e)
-    return h(Box, { display: 'none' })
   })
 }

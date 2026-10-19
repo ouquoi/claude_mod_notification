@@ -1,21 +1,22 @@
 # mod-notification
 
-Get a push notification when Claude Code has finished or is waiting for you, so you can step away from the terminal without missing anything.
+Get a desktop and phone notification when Claude Code has finished or is waiting for you, so you can step away from the terminal without missing anything.
 
-`mod-notification` is a [Claude Code](https://claude.com/claude-code) plugin. When a turn ends, or when Claude asks you a question, it starts a timer. If you haven't come back when the timer fires, it sends you a notification, on your phone too if Remote Control is connected.
+`mod-notification` is a [Claude Code](https://claude.com/claude-code) plugin. When a turn ends, or when Claude asks you a question, it starts a timer. If you haven't come back when the timer fires, it sends you a notification on your desktop and, through [ntfy](https://ntfy.sh), on your phone. It never asks the model to do anything, so it costs no tokens.
 
 ## Features
 
-- **Idle notification**: when a turn ends with an answer or an error and you haven't replied within the delay, you get a push notification.
-- **Question alerts**: when Claude asks you something through `AskUserQuestion`, you get a desktop notification if you haven't answered within the delay.
+- **Idle notification**: when a turn ends with an answer or an error and you haven't replied within the delay, you get a notification.
+- **Question alerts**: when Claude asks you something through `AskUserQuestion`, you get a desktop notification and a phone push if you haven't answered within the delay.
 - **Useful content**: each message shows the project name, the turn duration, token counts and the turn cost (costs under $0.01 are shown as `<$0.01`).
 - **Optional preview**: append the last sentence of Claude's answer (truncated to 100 characters), which is usually the result or the question being asked.
 - **Quiet when you're around**: the timer is cancelled as soon as you submit a prompt or end the session.
-- **Clean display**: the internal push prompt, its tool call and the model's `ok` reply are hidden from the conversation.
+- **Open button**: the phone notification carries an "Open Claude Code" button, and tapping the notification does the same. It opens `https://claude.ai/code` (your session list), because a mod cannot read its own session's address.
+- **No tokens**: the phone push is a plain HTTP request to ntfy, not a model turn, so nothing is added to the conversation.
 
 ## Notification examples
 
-Turn finished, with the preview on (default):
+Every notification reads the same on the desktop and on the phone. Turn finished, with the preview on (default):
 
 ```
 ✅ "my-project" · 17s · 219.4k in / 1.7k out · $0.06. Claude is waiting for you. « Do you want me to push it? »
@@ -33,7 +34,7 @@ Turn stopped on an error:
 ❌ "my-project" · 9s · 12.0k in / 350 out · <$0.01. Claude stopped on an error. « The build failed on the auth tests. »
 ```
 
-Claude is asking you a question (desktop notification):
+Claude is asking you a question:
 
 ```
 ❓ "my-project". Claude is asking you something. « Which package manager should we use? »
@@ -50,18 +51,25 @@ git clone https://github.com/ouquoi/claude_mod_notification.git
 claude --plugin-dir ./claude_mod_notification
 ```
 
-For phone notifications, connect [Remote Control](https://code.claude.com/docs) to your session.
+### Phone notifications
+
+1. Install the [ntfy app](https://ntfy.sh) on your phone.
+2. Subscribe to a topic with a long random name, for example `claude-mod-4f9a1c7e2b8d`. Anyone who knows the topic name can read your notifications, so treat it as a secret.
+3. Set the `ntfyTopic` option to that name (see below).
+
+Without `ntfyTopic`, only the desktop notification is sent, and a line in the debug log says so.
 
 ## Configuration
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `delaySeconds` | number | `60` | How long to wait without any reply from you before a notification is sent. |
+| `ntfyTopic` | string | empty | Secret ntfy topic the phone push is sent to. Empty means no phone push. |
 | `includePreview` | boolean | `true` | Append the end of Claude's answer (or the question itself) to the notification. |
 
 ## How it works
 
-A mod can't send a phone push by itself. When the timer fires, it submits a prompt tagged `[mod-notification]` that asks the model to call the `PushNotification` tool with a prepared message, then reply `ok`. The mod then hides that exchange from the display.
+When the timer fires, the mod raises a desktop notification through Claude Code's notification channel (the `preferredNotifChannel` setting; on Windows, `terminal_bell` is the most reliable) and posts the same text to `https://ntfy.sh` with `$.http.fetch`. The text, including the question or the end of the answer when the preview is on, therefore goes through the ntfy server.
 
 ## Development
 

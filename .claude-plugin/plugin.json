@@ -1,13 +1,19 @@
 {
   "name": "mod-notification",
   "version": "0.1.0",
-  "description": "Sends a notification (phone included, via Remote Control) when Claude has finished or is waiting for your answer and you have not come back after a configurable delay.",
+  "description": "Sends a notification (phone included, via ntfy) when Claude has finished or is waiting for your answer and you have not come back after a configurable delay. Uses no tokens.",
   "userConfig": {
     "delaySeconds": {
       "type": "number",
       "title": "Delay before notifying (seconds)",
       "description": "How long to wait without any reply from you before a notification is sent. 60 = 1 minute.",
       "default": 60
+    },
+    "ntfyTopic": {
+      "type": "string",
+      "title": "ntfy topic for phone pushes",
+      "description": "Secret topic name you subscribe to in the ntfy app. Anyone who knows it can read your notifications, so pick a long random one. Empty = no phone push.",
+      "default": ""
     },
     "includePreview": {
       "type": "boolean",
